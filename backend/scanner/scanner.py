@@ -1,41 +1,40 @@
 import requests
 
-def scan_api(url):
-    """
-    Scans a given API URL for common vulnerabilities.
-    
-    Parameters:
-        url (str): The URL of the API to scan.
-    
-    Returns:
-        dict: A dictionary with the URL and a list of found issues.
-    """
-    result = {
-        "url": url,
-        "issues": []
-    }
-
+def advanced_scan(url):
+    issues = []
     try:
-        # Make a GET request to the API
-        response = requests.get(url)
-
-        # Check if HTTPS is used
-        if not url.startswith("https"):
-            result["issues"].append("No HTTPS detected")
-
-        # Check for missing security headers
+        response = requests.get(url, timeout=5)
         headers = response.headers
-        if "X-Frame-Options" not in headers:
-            result["issues"].append("Missing X-Frame-Options header")
-        if "Content-Security-Policy" not in headers:
-            result["issues"].append("Missing Content-Security-Policy header")
 
-        # Check for insecure CORS policy
-        cors_origin = headers.get("Access-Control-Allow-Origin", "")
-        if "*" in cors_origin:
-            result["issues"].append("CORS policy allows all origins (*)")
+        if not url.startswith("https://"):
+            issues.append("❌ Insecure protocol (HTTPS missing)")
+
+        required_headers = {
+            "Content-Security-Policy": "Mitigates XSS",
+            "X-Frame-Options": "Clickjacking prevention",
+            "Strict-Transport-Security": "Enforce HTTPS",
+            "X-Content-Type-Options": "Prevent MIME sniffing"
+        }
+
+        for header, purpose in required_headers.items():
+            if header not in headers:
+                issues.append(f"❌ Missing {header} ({purpose})")
+
+        if "Access-Control-Allow-Origin" in headers and "*" in headers["Access-Control-Allow-Origin"]:
+            issues.append("⚠️ CORS policy too open")
+
+        if "Authorization" not in headers:
+            issues.append("⚠️ No Authorization token in headers")
+
+        return {
+            "url": url,
+            "status_code": response.status_code,
+            "issues": issues or ["✅ No major issues detected"]
+        }
 
     except Exception as e:
-        result["issues"].append(f"Could not connect: {str(e)}")
-
-    return result
+        return {
+            "url": url,
+            "error": str(e),
+            "issues": ["❌ Connection failed or timed out"]
+        }
