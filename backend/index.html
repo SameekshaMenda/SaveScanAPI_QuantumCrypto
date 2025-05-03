@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Vulnerability Scanner</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #003366; }
+        .input-box { margin: 20px 0; }
+        .result-box { margin-top: 20px; }
+        .good { color: green; }
+        .bad { color: red; }
+        .warn { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>API Cryptography Vulnerability Scanner</h1>
+
+    <!-- Form for URL input -->
+    <div class="input-box">
+        <label for="urlInput">Enter the API URL:</label>
+        <input type="text" id="urlInput" placeholder="Enter URL (e.g., https://example.com/api)" size="50" />
+        <button onclick="submitUrl()">Scan</button>
+    </div>
+
+    <!-- Display the results -->
+    <div id="resultContainer" class="result-box"></div>
+
+    <script>
+        function submitUrl() {
+            const url = document.getElementById('urlInput').value;
+            const resultContainer = document.getElementById('resultContainer');
+            resultContainer.innerHTML = "Scanning... Please wait.";
+    
+            if (!url) {
+                resultContainer.innerHTML = "Please enter a valid URL.";
+                return;
+            }
+    
+            // Correct usage: add the URL as a query string parameter
+            const encodedUrl = encodeURIComponent(url);
+            const fullUrl = `http://127.0.0.1:5000/scan?url=${encodedUrl}`;
+    
+            fetch(fullUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    resultContainer.innerHTML = '';  // Clear previous results
+                    data.findings.forEach(item => {
+                        let div = document.createElement('div');
+                        div.classList.add('finding');
+                        if (item.includes('✔')) div.classList.add('good');
+                        if (item.includes('❌')) div.classList.add('bad');
+                        if (item.includes('⚠')) div.classList.add('warn');
+                        div.innerText = item;
+                        resultContainer.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultContainer.innerHTML = "Error occurred while scanning. Please try again.";
+                });
+        }
+    </script>
+    
+</body>
+</html>
