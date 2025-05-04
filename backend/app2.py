@@ -9,6 +9,10 @@ from datetime import datetime
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS 
+from flask import send_file
+import os
+
+
 
 
 app = Flask(__name__)
@@ -21,6 +25,15 @@ init(autoreset=True)
 # Function to collect report findings
 findings = []
 
+@app.route('/download/<filename>', methods=['GET'])
+def download_report(filename):
+    file_path = os.path.join(os.getcwd(), filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=False)  # Set to False for "View", True for "Download"
+    else:
+        return jsonify({'error': 'File not found'}), 404
+    
+
 # --- Function 1: HTTPS Validator ---
 def check_https(url):
     findings.append("Checking HTTPS Usage...")
@@ -28,6 +41,10 @@ def check_https(url):
         findings.append("✔ API is using HTTPS. [OWASP API2:2019 - Broken User Authentication]")
     else:
         findings.append("❌ API is NOT using HTTPS! (Risk of data interception) [OWASP API2:2019]")
+
+
+
+
 
 # --- Function 2: SSL/TLS and Cipher Analyzer ---
 def check_ssl_tls(hostname):
@@ -50,6 +67,10 @@ def check_ssl_tls(hostname):
 
     except Exception as e:
         findings.append(f"⚠ SSL/TLS Check Failed: {e}")
+
+
+
+
 
 # --- Function 3: Security Headers Checker ---
 def check_security_headers(url):
@@ -88,6 +109,14 @@ def check_crypto_weaknesses():
 
     for weakness in weaknesses:
         findings.append(f"⚠ {weakness['item']} - {weakness['risk']}")
+
+
+
+
+
+
+
+
 
 # --- Generate HTML Report ---
 def generate_html_report(url):
@@ -133,6 +162,13 @@ def generate_html_report(url):
     html_content = template.render(url=url, findings=findings, date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     return html_content
 
+
+
+
+
+
+
+
 # --- Save PDF ---
 def save_pdf(html_content, filename="API_Vulnerability_Report.pdf"):
     try:
@@ -150,6 +186,13 @@ def save_pdf(html_content, filename="API_Vulnerability_Report.pdf"):
         print(Fore.RED + f"Error generating PDF: {e}")
         print(Fore.YELLOW + "Make sure 'wkhtmltopdf' is installed and accessible.")
 
+
+
+
+
+
+
+
 # --- Flask Route for Scanning URL ---
 @app.route('/scan', methods=['GET'])
 def scan():
@@ -158,19 +201,28 @@ def scan():
         return jsonify({'error': 'URL parameter is missing'}), 400
 
     parsed_url = urlparse(url)
-    hostname = parsed_url.netloc
+    hostname = parsed_url.netloc or parsed_url.path
 
-    findings.clear()  # Reset the findings list for each scan
+    findings.clear()
 
-    # Perform Scans
+    check_https(url)
     check_ssl_tls(hostname)
     check_security_headers(url)
     check_crypto_weaknesses()
 
-    html_content = generate_html_report(url)
-    save_pdf(html_content)
+    html_report = generate_html_report(url)
 
-    return jsonify({'message': 'Scan completed', 'findings': findings}), 200
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_hostname = hostname.replace('.', '_')
+    filename = f"API_Vulnerability_Report_{safe_hostname}_{timestamp}.pdf"
+    save_pdf(html_report, filename=filename)
+
+    return jsonify({
+        'message': 'Scan completed successfully',
+        'report': findings,
+        'pdf_filename': filename
+    })
+
 
 
 # --- Main Entry Point ---
